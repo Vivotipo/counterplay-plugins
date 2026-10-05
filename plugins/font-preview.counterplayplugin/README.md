@@ -2,19 +2,19 @@
 
 A custom Counterplay window with 85 individual sample texts in one flat list. Click any text to preview it immediately. Edit its name/text, add your own entries, duplicate samples or remove them with Undo removal. The library and size save on this Mac and survive reopening.
 
-Install this `.counterplayplugin` folder through **Settings → Plugins → Install Plugin…**, enable **Font Preview**, open a font and choose **Plugins → Font Preview → Open Font Preview**. No font-edit permission is needed. The header holds Master and Texts; the footer holds size, line height, tracking, Features and Refresh. The status row above the specimen reports save success or errors.
+Install with one click from **Settings → Plugins → Browse Community Plugins… → Font Preview → Install**. Open a font and choose **Plugins → Font Preview → Open Font Preview**. No font-edit permission is needed. The header holds Master and Texts; the footer holds size, line height, tracking, Features and Refresh. The status row above the specimen reports save success or errors.
 
 Rendering uses the invoking font's compiled outlines and HarfBuzz, includes unsaved font edits and wraps to the window width. Missing characters are counted by a strict background proof; the editable browser surface may show fallback for unsupported characters. Color layers and `/glyphName` tokens are not rendered. Texts do not alter font data or its saved proof.
 
 The plugin owns all UI in `index.html`, `style.css`, `preview.js` and `samples.js`. It uses the general `ui.windows` bridge with `document.read`, `font.compile` and `storage`; the host does not impose this layout or workflow. Saved library schema version 1 uses key `text-library`, with up to 500 records, subject to the host's 1 MB quota. Errors preserve saved data.
 
-Validate from the Counterplay checkout:
+Validate from this community repository:
 
 ```sh
-python3 script/counterplay_plugin.py validate plugins/font-preview.counterplayplugin
+python3 scripts/catalog.py .
 ```
 
-Developer guide: `docs-site/content/plugin-preview.mdx` and `docs-site/content/plugin-ui.mdx`. Distributed under the included MIT license.
+Developer guides: [Font Preview](https://counterplay.vivotipo.com/plugin-preview) and [interactive plugins](https://counterplay.vivotipo.com/plugin-ui). Distributed under the included MIT license.
 
 ## Preview controls
 
