@@ -1,0 +1,127 @@
+name: Plugin review and publication
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plugins-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  validate:
+    name: Compatibility and source policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: candidate
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: trusted
+          persist-credentials: false
+      - name: Test trusted validator
+        run: python3 -m unittest discover -s trusted/scripts -p 'test_*.py'
+      - name: Validate candidate without executing plugin code
+        env:
+          IS_PR: ${{ github.event_name == 'pull_request' }}
+        run: |
+          if [ "$IS_PR" = true ]; then
+            python3 trusted/scripts/catalog.py candidate --base trusted
+          else
+            python3 trusted/scripts/catalog.py candidate
+          fi
+  malware:
+    name: Malware scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install ClamAV and update signatures
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y clamav clamav-freshclam
+          sudo systemctl stop clamav-freshclam || true
+          sudo freshclam
+      - name: Scan all plugin files (infection or scanner error blocks merge)
+        run: clamscan --recursive --infected --max-filesize=25M --max-scansize=150M plugins
+  codeql:
+    name: CodeQL security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@1190a975f95ce23525efb6a3fc21ea29567c1b52
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          queries: security-extended
+      - uses: github/codeql-action/analyze@1190a975f95ce23525efb6a3fc21ea29567c1b52
+        with:
+          output: sarif
+      - name: Fail on security findings
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          findings = []
+          for path in Path('sarif').glob('*.sarif'):
+              for run in json.loads(path.read_text())['runs']:
+                  findings.extend(run.get('results', []))
+          if findings:
+              raise SystemExit(f'CodeQL reported {len(findings)} findings. Resolve them before merging.')
+          PY
+  publish:
+    name: Publish catalog
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [validate, malware, codeql]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          path: source
+          persist-credentials: false
+      - name: Checkout or initialize distribution branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          mkdir distribution
+          cd distribution
+          git init -b catalog
+          git remote add origin "https://github.com/$REPOSITORY.git"
+          gh auth setup-git
+          if git ls-remote --exit-code --heads origin catalog; then
+            git fetch --depth=1 origin catalog
+            git reset --hard FETCH_HEAD
+          fi
+      - name: Build deterministic catalog and content-addressed packages
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: python3 source/scripts/catalog.py source --output distribution --commit "$SOURCE_COMMIT"
+      - name: Publish validated files
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd distribution
+          git config user.name 'counterplay-plugins[bot]'
+          git config user.email 'counterplay-plugins@users.noreply.github.com'
+          git add catalog.json packages
+          if ! git diff --cached --quiet; then
+            git commit -m 'Publish reviewed community catalog'
+            git push origin HEAD:catalog
+          fi

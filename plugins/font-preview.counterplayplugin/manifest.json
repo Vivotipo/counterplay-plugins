@@ -1,0 +1,34 @@
+{
+  "id": "studio.counterplay.font-preview",
+  "name": "Font Preview",
+  "version": "3.2.0",
+  "apiVersion": 1,
+  "description": "A customizable library of sample texts with a live preview of your font.",
+  "permissions": [
+    "document.read",
+    "ui.windows",
+    "font.compile",
+    "storage"
+  ],
+  "commands": [
+    {
+      "id": "preview",
+      "title": "Open Font Preview",
+      "window": "preview"
+    }
+  ],
+  "windows": [
+    {
+      "id": "preview",
+      "title": "Font Preview",
+      "entry": "index.html",
+      "width": 1180,
+      "height": 820
+    }
+  ],
+  "resources": [
+    "preview.js",
+    "samples.js",
+    "style.css"
+  ]
+}
