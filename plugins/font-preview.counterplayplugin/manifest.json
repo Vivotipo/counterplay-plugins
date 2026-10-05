@@ -1,7 +1,7 @@
 {
   "id": "studio.counterplay.font-preview",
   "name": "Font Preview",
-  "version": "3.2.0",
+  "version": "3.2.1",
   "apiVersion": 1,
   "description": "A customizable library of sample texts with a live preview of your font.",
   "permissions": [
